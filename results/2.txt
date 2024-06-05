@@ -1,8 +1,0 @@
-SPEAKER_01:  Oh.
-SPEAKER_01:  It's so cool today. Yes, it's a bit chilly.
-SPEAKER_01:  It's 25 degrees.
-SPEAKER_01:  What would that be in England?
-SPEAKER_01:  Oh, minus.
-SPEAKER_00:  something.
-SPEAKER_01:  you
-SPEAKER_00:  But how did you know I was English? Well, I could tell by your accent. Oh.
