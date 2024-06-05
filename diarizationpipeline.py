@@ -10,13 +10,17 @@ from transformers import pipeline
 import threading
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
+from email.mime.base import MIMEBase
+from email import encoders
 from email.mime.multipart import MIMEMultipart
 import smtplib
+import pandas as pd
 
 from dotenv import load_dotenv
 load_dotenv(".env")
 EMAIL=os.getenv("EMAIL")
 PASSWORD=os.getenv("PASSWORD")
+HF_TOKEN=os.getenv("HF_TOKEN")
 
 
 home_path='.'
@@ -42,11 +46,22 @@ def send_email(receiver_email):
   msg['To'] = receiver_email
   global INPUT_PATH
   try:
+    # Attach each file in the folder
+    folder_path=f'{home_path}/results'
+    for filename in os.listdir(folder_path):
+        file_path = os.path.join(folder_path, filename)
+        if os.path.isfile(file_path):
+            with open(file_path, "rb") as attachment:
+                part = MIMEBase('application', 'octet-stream')
+                part.set_payload(attachment.read())
+                encoders.encode_base64(part)
+                part.add_header('Content-Disposition', f"attachment; filename= {filename}")
+                msg.attach(part)
       
-      with open(f'{home_path}/results/trans.txt', "rb") as f:
-          img_data = f.read()
-      image = MIMEImage(img_data, name="trans.txt",_subtype="txt")
-      msg.attach(image)
+      # with open(f'{home_path}/results/', "rb") as f:
+      #     img_data = f.read()
+      # image = MIMEImage(img_data, name="trans.txt",_subtype="txt")
+      # msg.attach(image)
 
   except Exception as e:
       print("Error attaching image:", e)
@@ -78,13 +93,13 @@ def transcribe_speech(filepath):
 
 @st.cache_resource
 def load_pipeline_dia():
-  return Pipeline.from_pretrained("pyannote/speaker-diarization-3.1",use_auth_token="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")
+  return Pipeline.from_pretrained("pyannote/speaker-diarization-3.1",use_auth_token=HF_TOKEN)
 
 pipeline_dia = load_pipeline_dia()
 
-"""### Final Function"""
 
-def final(link,file_name,email):
+
+def final(link,file_name,email,type):
   try:
     Download(link,'downloads',file_name)
 
@@ -115,18 +130,22 @@ def final(link,file_name,email):
           t1 = float(segment.start) * 1000 # works in milliseconds
           t2 = float(segment.end) * 1000
           a = newAudio[t1:t2]
-          audio_file_name=f'{home_path}/WASTE.wav'
+          audio_file_name=f'{home_path}/{x[0]}.wav'
           a.export(audio_file_name, format="wav")
           file1.write(speaker+": "+transcribe_speech(audio_file_name)+"\n")
           os.remove(audio_file_name)
+          
           # os.remove(f'{home_path}/download')
 
   except Exception as e:
     print(e)
 
   else:
-    send_email(email)
-    return("ALL GOOD!")
+    if type=='folder':
+       pass
+    elif type=='single':
+      send_email(email)
+    print("ALL GOOD!")
 
 #https://www.youtube.com/watch?v=nBpPe9UweWs
 file_name=f'trans.mp4'
@@ -138,16 +157,36 @@ st.title("Youtube Diarizaiton - ver1")
 with st.form(key='input_form'):
   link = st.text_input("Enter the youtube link here")
   email = st.text_input("Enter your email address")
+  file = st.file_uploader("Upload your Excel file", type=['xlsx', 'xls'])
   submit_button = st.form_submit_button(label='Submit')
 
   # When the form is submitted, call the process_input function
   if submit_button:
     # Validate that both fields are not empty
-    if not link:
-      st.error("The link field is required.")
-    elif not email:
-      st.error("The email field is required.")
-    else:
-      threading.Thread(target=final, args=(link,file_name,email)).start()
+    if email and link:
+      threading.Thread(target=final, args=(link,file_name,email,'single')).start()
       st.success("File uploaded successfully! You will receive an email with the results shortly.")
+    elif email and file:
+      df = pd.read_excel(file)
+      # Check if the 'LINKS' column exists
+      if 'LINKS' in df.columns:
+        links = df['LINKS'].tolist()
+        st.write("Links from the Excel file:")
+        threads=[]
+        for i, link in enumerate(links, 1):
+          thread=threading.Thread(target=final, args=(link,f'{i}.mp4',email,'folder'))
+          thread.start()
+          threads.append(thread)
+        st.success("File uploaded successfully! You will receive an email with the results shortly.")
+        for thread in threads:
+          thread.join()
+        
+        send_email(email)
+          
+
+          
+      else:
+        st.write("The uploaded file does not contain a 'LINKS' column.")
+    else:
+      st.error("not all fields present")
 
