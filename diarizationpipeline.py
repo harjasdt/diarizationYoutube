@@ -19,7 +19,7 @@ EMAIL=os.getenv("EMAIL")
 PASSWORD=os.getenv("PASSWORD")
 
 
-home_path=''
+home_path='.'
 _default_clients["ANDROID_MUSIC"] = _default_clients["ANDROID_CREATOR"]
 
 def Download(link,file_path,file_name):
@@ -119,7 +119,7 @@ def final(link,file_name,email):
           a.export(audio_file_name, format="wav")
           file1.write(speaker+": "+transcribe_speech(audio_file_name)+"\n")
           os.remove(audio_file_name)
-          os.remove(f'{home_path}//download')
+          # os.remove(f'{home_path}/download')
 
   except Exception as e:
     print(e)
@@ -129,20 +129,25 @@ def final(link,file_name,email):
     return("ALL GOOD!")
 
 #https://www.youtube.com/watch?v=nBpPe9UweWs
-file_name=f'{home_path}/trans.mp4'
+file_name=f'trans.mp4'
 
 
 
 st.title("Youtube Diarizaiton - ver1")
 
-# Apply some CSS to style the app
+with st.form(key='input_form'):
+  link = st.text_input("Enter the youtube link here")
+  email = st.text_input("Enter your email address")
+  submit_button = st.form_submit_button(label='Submit')
 
+  # When the form is submitted, call the process_input function
+  if submit_button:
+    # Validate that both fields are not empty
+    if not link:
+      st.error("The link field is required.")
+    elif not email:
+      st.error("The email field is required.")
+    else:
+      threading.Thread(target=final, args=(link,file_name,email)).start()
+      st.success("File uploaded successfully! You will receive an email with the results shortly.")
 
-# Email input
-link = st.text_input("Enter the youtube link here")
-email = st.text_input("Enter your email address")
-if link and email :
-  # final(link,file_name)
-  threading.Thread(target=final, args=(link,file_name,email)).start()
-  st.success("File uploaded successfully! You will receive an email with the results shortly.")
-  link=None
